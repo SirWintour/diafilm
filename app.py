@@ -1,13 +1,13 @@
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
 from PySide6.QtGui import QPalette, QColor, QPixmap, QImage, QShortcut
-from PySide6.QtCore import QThreadPool, QSize, Signal
+from PySide6.QtCore import QThreadPool, QSize, Signal, Qt
 import cv2
 from videoworker import VideoWorker
 from audioworker import AudioWorker
 from settings import SettingsControls
 from filesaver import Filesaver
-from config import video_device
+from config import video_device, output_dir
 
 class MainWindow(QMainWindow):
 
@@ -22,17 +22,44 @@ class MainWindow(QMainWindow):
 		main_layout = QVBoxLayout()
 
 		preview = QHBoxLayout()
-		
+
+		# Left: last shot
+		last_shot_layout = QVBoxLayout()
+		last_shot_label = QLabel("Last shot")
+		last_shot_label.setAlignment(Qt.AlignCenter)
+		last_shot_label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+		last_shot_label.setStyleSheet("font-size:12px;")
 		self.last_shot = LiveImageView('lime')
 		self.last_shot.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
+		last_shot_layout.addWidget(last_shot_label)
+		last_shot_layout.addWidget(self.last_shot)
+
+		# Right: Live preview
+		video_layout = QVBoxLayout()
+		video_label = QLabel("Live preview")
+		video_label.setAlignment(Qt.AlignCenter)
+		video_label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+		video_label.setStyleSheet("font-size:12px;")
 		self.video = ToggleImageView('purple')
 		self.video.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
-		preview.addWidget(self.last_shot)
-		preview.addWidget(self.video)
+		video_layout.addWidget(video_label)
+		video_layout.addWidget(self.video)
+
+		preview.addLayout(last_shot_layout)
+		preview.addLayout(video_layout)
 
 		main_layout.addLayout(preview)
 
-		self.controls = SettingsControls()
+		# Pass the new_image function, so the buttons know what to do when an image is taken.
+		self.controls = SettingsControls(self.new_image)
+		# Load image directory form config.
+		if (self.controls.get_output_dir() == "" and output_dir != ""):
+			print("Loading output dir from config.")
+			self.controls.set_output_dir(output_dir)
+		# Update the image number to the last image.
+		if (self.controls.get_output_dir() != ""):
+			self.controls.set_no(self.filesaver.get_last_file_number(self.controls.get_output_dir()))
+
 		self.controls.switch_tabs.connect(self.video.show_view)
 
 		main_layout.addWidget(self.controls)
@@ -45,7 +72,7 @@ class MainWindow(QMainWindow):
 		self.threadpool = QThreadPool()
 
 		# start VideoWorker
-		self.video_worker = VideoWorker(video_device, self.width()//2-50)
+		self.video_worker = VideoWorker(video_device, self.width()//2-50, self.controls.image_settings)
 		self.video_worker.signals.update_preview.connect(self.update_preview)
 		self.video_worker.signals.update_analysis.connect(self.update_analysis)
 
@@ -62,11 +89,11 @@ class MainWindow(QMainWindow):
 		
 		self.redo_shortcut = QShortcut(self)
 		self.redo_shortcut.setKey('r')
-		self.redo_shortcut.activated.connect(lambda: self.new_image(redo=True, manual=True))
+		self.redo_shortcut.activated.connect(self.controls.retake_picture_button.take_picture)
 		
 		self.take_shortcut = QShortcut(self)
 		self.take_shortcut.setKey('t')
-		self.take_shortcut.activated.connect(lambda: self.new_image(manual=True))
+		self.take_shortcut.activated.connect(self.controls.take_picture_button.take_picture)
 		
 		self.mute_shortcut = QShortcut(self)
 		self.mute_shortcut.setKey('m')

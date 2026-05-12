@@ -2,9 +2,10 @@
 
 Diafilm is a small GUI utility to capture pictures from webcam based slide film scanners such as the SilverCrest Negative Digitiser SND 3600.
 
-*It turened out to be more of a quick and dirty project, but might be useful to some in it's current state, so I decided to publish it nevertheless.*
+This project is forked from [hermlon/diafilm](https://github.com/hermlon/diafilm) and updated as well as added some features, as I now also own a similar camera box as the original project used.  
+I have added some additional features, such as color inversion and extra buttons for ease of use. More might come if I feel the need.  
 
-![Screenshot](docs/screenshot.png)
+![Screenshot](media/screenshot.png)
 
 ## Installation
 

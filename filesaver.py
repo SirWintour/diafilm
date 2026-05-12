@@ -1,5 +1,6 @@
 import os
 import cv2
+import re
 
 class Filesaver():
 
@@ -15,3 +16,15 @@ class Filesaver():
             print("saving " + path)
         else:
             print("empty output dir")
+
+    def get_last_file_number(self, path):
+        files = os.listdir(path)
+        last_file = max(files, key=lambda x: self.__get_match__(x))
+        return int(last_file.split(".")[0])if last_file else 0
+
+    def __get_match__(self, item):
+        match = re.search(r'\d+', item)
+        if match:
+            return int(match.group())
+        else:
+            return -1

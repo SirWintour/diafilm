@@ -6,10 +6,12 @@ class SettingsControls(QWidget):
 
 	switch_tabs = Signal(bool)
 
-	def __init__(self):
+	def __init__(self, take_picture_func):
 		super().__init__()
 		self.no = 0
 		main_layout = QVBoxLayout()
+		self.take_picture_button = PictureButton(take_picture_func)
+		self.retake_picture_button = RetakePictureButton(take_picture_func)
 		self.run_button = RunButton()
 		self.dir_button = DirectoryButton()
 		self.prefix_text = QLineEdit()
@@ -18,11 +20,13 @@ class SettingsControls(QWidget):
 		cooldown_bar = CooldownProgress()
 		tabs = QTabWidget()
 		tabs.currentChanged.connect(self.tab_changed)
-		image_settings = ImageSettings()
+		self.image_settings = ImageSettings()
 		threshold_settings = ThresholdSettings()
-		tabs.insertTab(0, image_settings, 'Image')
+		tabs.insertTab(0, self.image_settings, 'Image')
 		tabs.insertTab(1, threshold_settings, 'Detection')
 		control_bar = QHBoxLayout()
+		control_bar.addWidget(self.take_picture_button)
+		control_bar.addWidget(self.retake_picture_button)
 		control_bar.addWidget(self.run_button)
 		control_bar.addWidget(self.dir_button)
 		control_bar.addWidget(self.prefix_text)
@@ -42,6 +46,10 @@ class SettingsControls(QWidget):
 	def reset_no(self):
 		self.no = 0
 
+	# Used to set the current image numer. Added this to not accidentally override images.
+	def set_no(self, no):
+		self.no = no
+
 	def tab_changed(self, index):
 		if index == 0:
 			self.switch_tabs.emit(True)
@@ -50,6 +58,9 @@ class SettingsControls(QWidget):
 			
 	def get_output_dir(self):
 		return self.dir_button.dir_path
+
+	def set_output_dir(self, dir):
+		self.dir_button.set_dir(dir)
 	
 	def get_prefix(self):
 		return self.prefix_text.text()
@@ -64,7 +75,22 @@ class ImageSettings(QWidget):
 		main_layout = QVBoxLayout()
 		brightness = QSlider(Qt.Horizontal)
 		#main_layout.addWidget(brightness)
+		invert_button = self.__setup_invert__()
+		main_layout.addLayout(invert_button)
 		self.setLayout(main_layout)
+	
+	def __setup_invert__(self):
+		self.invert_button = InvertButton()
+		label = QLabel("Normal / Inverted color:")
+		label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+		# Keep label compact so button stays immediately to its right
+		label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+		label.setContentsMargins(0, 0, 8, 0)
+		row = QHBoxLayout()
+		row.setAlignment(Qt.AlignLeft)
+		row.addWidget(label)
+		row.addWidget(self.invert_button)
+		return row
 
 class ThresholdSettings(QWidget):
 
@@ -109,6 +135,55 @@ class ThresholdSettings(QWidget):
 	def update_percentage(self, value):
 		self.percentage_label.setText("{0:.0f} %".format(value*100))
 
+class PictureButton(QPushButton):
+	
+	def __init__(self, take_picture_func):
+		super().__init__()
+		self.setText("Take Picture")
+		self.setCheckable(False)
+		self.take_picture_func = take_picture_func
+		self.clicked.connect(self.take_picture)
+
+	def take_picture(self):
+		self.take_picture_func(manual=True)
+		
+	def toggle_shortcut(self):
+		self.animateClick()
+
+class RetakePictureButton(QPushButton):
+	
+	def __init__(self, take_picture_func):
+		super().__init__()
+		self.setText("Re-Take Picture")
+		self.setCheckable(False)
+		self.take_picture_func = take_picture_func
+		self.clicked.connect(self.take_picture)
+
+	def take_picture(self):
+		self.take_picture_func(redo=True, manual=True)
+		
+	def toggle_shortcut(self):
+		self.animateClick()
+
+class InvertButton(QPushButton):
+
+	def toggleInvert(self, checked):
+		self.setText("inverted" if checked else "normal")
+		self.checked = checked
+
+	def __init__(self):
+		super().__init__()
+		self.setCheckable(True)
+		self.checked = False
+		# prefer fixed horizontal size
+		self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+		self.setFixedWidth(100)
+		self.toggleInvert(False)
+		self.clicked.connect(self.toggleInvert)
+        
+	def toggle_shortcut(self):
+		self.animateClick()
+
 class RunButton(QPushButton):
 	
 	def toggleRun(self, checked):
@@ -134,8 +209,11 @@ class DirectoryButton(QPushButton):
 		self.clicked.connect(self.choose_dir)
 		
 	def choose_dir(self):
-		self.dir_path = QFileDialog.getExistingDirectory()
-		self.setText("..." + self.dir_path[-20:])
+		self.set_dir(QFileDialog.getExistingDirectory())
+
+	def set_dir(self, dir):
+		self.dir_path = dir
+		self.setText(self.dir_path[-20:])
 		
 class CooldownProgress(QProgressBar):
 	

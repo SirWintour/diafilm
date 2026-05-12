@@ -1,6 +1,8 @@
 from PySide6.QtCore import QRunnable, Slot, QObject, Signal
 from enum import Enum
 import cv2
+from typing import Type
+from settings import ImageSettings
 
 class VideoWorkerSignals(QObject):
 
@@ -9,8 +11,9 @@ class VideoWorkerSignals(QObject):
 
 class VideoWorker(QRunnable):
 
-	def __init__(self, camera_index, preview_width):
+	def __init__(self, camera_index, preview_width, properties: Type[ImageSettings]|None = None):
 		super().__init__()
+		self.properties = properties
 		self.analyzer = VideoAnalyzer()
 		self._enabled = True
 		self.preview_width = preview_width
@@ -47,6 +50,8 @@ class VideoWorker(QRunnable):
 	def grab_preview(self):
 		ret_val, img = self.capture.read()
 		if ret_val:
+			if self.properties.invert_button.checked:
+				img = cv2.bitwise_not(img)
 			self.last_img = img
 			frame_preview = cv2.resize(img, self.get_best_fit_size(self.last_img.shape), interpolation=cv2.INTER_AREA)
 			frame_preview = cv2.cvtColor(frame_preview, cv2.COLOR_BGR2RGB)
