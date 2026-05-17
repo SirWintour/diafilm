@@ -77,6 +77,8 @@ class ImageSettings(QWidget):
 		#main_layout.addWidget(brightness)
 		invert_button = self.__setup_invert__()
 		main_layout.addLayout(invert_button)
+		zoom_slider = self.__setup_zoom__()
+		main_layout.addLayout(zoom_slider)
 		self.setLayout(main_layout)
 	
 	def __setup_invert__(self):
@@ -90,6 +92,35 @@ class ImageSettings(QWidget):
 		row.setAlignment(Qt.AlignLeft)
 		row.addWidget(label)
 		row.addWidget(self.invert_button)
+		return row
+
+	def update_zoom_percentage(self, value):
+		self.label_zoom.setText("{0:.0f} %".format(value))
+
+	def __setup_zoom__(self):
+		label = QLabel("Zoom:")
+		label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+		# Keep label compact so button stays immediately to its right
+		label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+		label.setContentsMargins(0, 0, 8, 0)
+		# Widget
+		self.zoom = QSlider(Qt.Horizontal)
+		self.zoom.setMinimum(100)
+		self.zoom.setMaximum(200)
+		# expose signal
+		self.zoom_changed = self.zoom.valueChanged
+		self.label_zoom = QLabel("100%")
+		self.label_zoom.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+		# Keep label compact so button stays immediately to its right
+		self.label_zoom.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+		self.label_zoom.setContentsMargins(0, 0, 8, 0)
+		self.zoom.valueChanged.connect(self.update_zoom_percentage)
+		# Add row
+		row = QHBoxLayout()
+		row.setAlignment(Qt.AlignLeft)
+		row.addWidget(label)
+		row.addWidget(self.zoom)
+		row.addWidget(self.label_zoom)
 		return row
 
 class ThresholdSettings(QWidget):

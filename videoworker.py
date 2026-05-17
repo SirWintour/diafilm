@@ -19,6 +19,21 @@ class VideoWorker(QRunnable):
 		self.preview_width = preview_width
 		self.signals = VideoWorkerSignals()
 		self.capture = cv2.VideoCapture(camera_index)
+
+		# Request a common high-resolution capture mode (some cameras only expose higher resolutions when using MJPG). Then read back what the driver actually set.
+		try:
+			fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+			self.capture.set(cv2.CAP_PROP_FOURCC, fourcc)
+		except Exception:
+			pass
+		# Set desired resolution (current set to 24MP, the camera should limit to largest available size)
+		desired_w, desired_h = 6000, 4000
+		self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, desired_w)
+		self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, desired_h)
+		actual_w = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+		actual_h = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+		print(f'Camera opened: requested {desired_w}x{desired_h}, actual {actual_w}x{actual_h}')
+		
 		#self.capture = cv2.VideoCapture("test/test5.mp4")
 		#yuyv vs mpeg?
 		#self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
@@ -26,6 +41,8 @@ class VideoWorker(QRunnable):
 		#self.capture.set(cv2.CAP_PROP_CONTRAST, 64)
 		self._interval = (0.0, 1.0)
 		self._threshold = 0 
+		# Image settings
+		self._zoom = 1.0
 
 	def stop(self):
 		self._enabled = False
@@ -36,6 +53,11 @@ class VideoWorker(QRunnable):
 	def set_interval(self, value):
 		self._interval = (value[0]/100, value[1]/100)
 
+	def set_zoom(self, value):
+		zoom_as_fraction = value / 100
+		print("Setting zoom to:", zoom_as_fraction)
+		self._zoom = zoom_as_fraction
+
 	@Slot()
 	def run(self):
 		while self._enabled and self.capture.isOpened():
@@ -43,15 +65,32 @@ class VideoWorker(QRunnable):
 			
 	def get_last_frame(self):
 		return self.last_img
+			
 	
 	def get_last_preview(self):
 		return self.last_preview
+	
+	def _zoom_center(self, img, zoom_factor=1.5):
+		y_size = img.shape[0]
+		x_size = img.shape[1]
+		
+		# define new boundaries
+		x1 = int(0.5*x_size*(1-1/zoom_factor))
+		x2 = int(x_size-0.5*x_size*(1-1/zoom_factor))
+		y1 = int(0.5*y_size*(1-1/zoom_factor))
+		y2 = int(y_size-0.5*y_size*(1-1/zoom_factor))
+
+		# first crop image then scale
+		img_cropped = img[y1:y2,x1:x2]
+		return cv2.resize(img_cropped, None, fx=zoom_factor, fy=zoom_factor)
 
 	def grab_preview(self):
 		ret_val, img = self.capture.read()
 		if ret_val:
 			if self.properties.invert_button.checked:
 				img = cv2.bitwise_not(img)
+			# Resize image
+			img = self._zoom_center(img, self._zoom)
 			self.last_img = img
 			frame_preview = cv2.resize(img, self.get_best_fit_size(self.last_img.shape), interpolation=cv2.INTER_AREA)
 			frame_preview = cv2.cvtColor(frame_preview, cv2.COLOR_BGR2RGB)

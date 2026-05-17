@@ -7,7 +7,8 @@ from videoworker import VideoWorker
 from audioworker import AudioWorker
 from settings import SettingsControls
 from filesaver import Filesaver
-from config import video_device, output_dir
+from config import video_device, output_dir, inverted, zoom_level
+from pathlib import Path
 
 class MainWindow(QMainWindow):
 
@@ -55,6 +56,8 @@ class MainWindow(QMainWindow):
 		# Load image directory form config.
 		if (self.controls.get_output_dir() == "" and output_dir != ""):
 			print("Loading output dir from config.")
+			# Make sure the path exists.
+			Path(output_dir).mkdir(parents=True, exist_ok=True)
 			self.controls.set_output_dir(output_dir)
 		# Update the image number to the last image.
 		if (self.controls.get_output_dir() != ""):
@@ -80,6 +83,12 @@ class MainWindow(QMainWindow):
 		self.video_worker.analyzer.update_progress.connect(self.update_progress)
 		self.controls.threshold_changed.connect(self.video_worker.set_threshold)
 		self.controls.interval_changed.connect(self.video_worker.set_interval)
+
+		# Setup camera settings
+		if inverted:
+			self.controls.image_settings.invert_button.click()
+		self.controls.image_settings.zoom_changed.connect(self.video_worker.set_zoom)
+		self.controls.image_settings.zoom.setValue(zoom_level)
 		
 		self.threadpool.start(self.video_worker)
 		
