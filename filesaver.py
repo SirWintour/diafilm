@@ -17,6 +17,22 @@ class Filesaver():
         else:
             print("empty output dir")
 
+    def load(self, output_dir, prefix, no):
+        if output_dir != "":
+            dir_path =  os.path.join(output_dir, prefix)
+            if not os.path.exists(dir_path):
+                print("Given path doesn't exist")
+                return None
+            path =  os.path.join(dir_path, str(no) + ".png")
+            if not os.path.exists(path):
+                print("No matching image found")
+                return None
+            image = cv2.imread(path)
+            return image
+        else:
+            print("empty output dir")
+            return None
+
     def get_last_file_number(self, path):
         files = os.listdir(path)
         if len(files) == 0:

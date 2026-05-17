@@ -26,24 +26,31 @@ class MainWindow(QMainWindow):
 
 		# Left: last shot
 		last_shot_layout = QVBoxLayout()
-		last_shot_label = QLabel("Last shot")
-		last_shot_label.setAlignment(Qt.AlignCenter)
-		last_shot_label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
-		last_shot_label.setStyleSheet("font-size:12px;")
+		self.last_shot_no = -1
+		self.ls = "Last shot"
+		self.last_shot_label = QLabel(f"{self.ls} -1")
+		self.last_shot_label.setAlignment(Qt.AlignCenter)
+		self.last_shot_label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+		self.last_shot_label.setStyleSheet("font-size:12px;")
 		self.last_shot = LiveImageView('lime')
 		self.last_shot.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
-		last_shot_layout.addWidget(last_shot_label)
+		last_shot_layout.addWidget(self.last_shot_label)
 		last_shot_layout.addWidget(self.last_shot)
 
 		# Right: Live preview
 		video_layout = QVBoxLayout()
-		video_label = QLabel("Live preview")
-		video_label.setAlignment(Qt.AlignCenter)
-		video_label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
-		video_label.setStyleSheet("font-size:12px;")
+		self.lp = "Live preview"
+		self.video_label = QLabel(f"{self.lp} -1")
+		self.video_label.setAlignment(Qt.AlignCenter)
+		self.video_label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+		self.video_label.setStyleSheet("font-size:12px;")
 		self.video = ToggleImageView('purple')
 		self.video.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
-		video_layout.addWidget(video_label)
+		control_bar = QHBoxLayout()
+		increment_button = IncrementButton(self)
+		control_bar.addWidget(self.video_label)
+		control_bar.addWidget(increment_button)
+		video_layout.addLayout(control_bar)
 		video_layout.addWidget(self.video)
 
 		preview.addLayout(last_shot_layout)
@@ -53,15 +60,6 @@ class MainWindow(QMainWindow):
 
 		# Pass the new_image function, so the buttons know what to do when an image is taken.
 		self.controls = SettingsControls(self.new_image)
-		# Load image directory form config.
-		if (self.controls.get_output_dir() == "" and output_dir != ""):
-			print("Loading output dir from config.")
-			# Make sure the path exists.
-			Path(output_dir).mkdir(parents=True, exist_ok=True)
-			self.controls.set_output_dir(output_dir)
-		# Update the image number to the last image.
-		if (self.controls.get_output_dir() != ""):
-			self.controls.set_no(self.filesaver.get_last_file_number(self.controls.get_output_dir()))
 
 		self.controls.switch_tabs.connect(self.video.show_view)
 
@@ -84,6 +82,24 @@ class MainWindow(QMainWindow):
 		self.controls.threshold_changed.connect(self.video_worker.set_threshold)
 		self.controls.interval_changed.connect(self.video_worker.set_interval)
 
+		# Load image directory form config.
+		if (self.controls.get_output_dir() == "" and output_dir != ""):
+			print("Loading output dir from config.")
+			# Make sure the path exists.
+			Path(output_dir).mkdir(parents=True, exist_ok=True)
+			self.controls.set_output_dir(output_dir)
+		# Update the image number to the last image.
+		if (self.controls.get_output_dir() != ""):
+			self.controls.set_no(self.filesaver.get_last_file_number(self.controls.get_output_dir()))
+			# Load previous image from storage.
+			if self.controls.no > 0:
+				self.last_shot_no = self.controls.no
+				loaded_frame = self.filesaver.load(self.controls.get_output_dir(), self.controls.get_prefix(), self.controls.no)
+				if loaded_frame is not None:
+					image = self.video_worker.resize_image(loaded_frame)
+					self.last_shot.update(image)
+		self.controls.prefix_text.textChanged.connect(self.update_video_number)
+		self.update_video_number()
 		# Setup camera settings
 		if inverted:
 			self.controls.image_settings.invert_button.click()
@@ -112,6 +128,11 @@ class MainWindow(QMainWindow):
 		self.run_shortcut.setKey('s')
 		self.run_shortcut.activated.connect(self.controls.run_button.toggle_shortcut)
 		
+	def update_video_number(self):
+		self.last_shot_label.setText(f"{self.ls} {self.last_shot_no}")
+		self.video_label.setText(f"{self.lp} {self.controls.no+1}")
+		pass
+
 	def toggle_mute(self):
 		self.mute = not self.mute
 
@@ -119,13 +140,24 @@ class MainWindow(QMainWindow):
 		self.video_worker.stop()
 
 	def new_image(self, redo=False, manual=False):
-		if not self.mute:
-			self.audio_worker.start()
-		self.last_shot.update(self.video_worker.get_last_preview())
+		# Make sure we actually want to take a picture.
 		if not self.controls.is_paused() or manual:
-			if not redo:
+			# If we try and redo, while no image is selected, just return.
+			if redo and self.last_shot_no < 1:
+				print("Unable to redo, as no previous image was taken!")
+				return
+
+			if not self.mute:
+				self.audio_worker.start()
+			self.last_shot.update(self.video_worker.get_last_preview())
+			if redo:
+				shot_no = self.last_shot_no
+			else:
 				self.controls.no += 1
-			self.filesaver.save(self.controls.get_output_dir(), self.controls.get_prefix(), self.controls.no, self.video_worker.get_last_frame())
+				shot_no = self.controls.no
+				self.last_shot_no = shot_no
+			self.filesaver.save(self.controls.get_output_dir(), self.controls.get_prefix(), shot_no, self.video_worker.get_last_frame())
+			self.update_video_number()
 		
 	def update_progress(self, progress, max_progress, status):
 		self.controls.update_progress(progress, max_progress)
@@ -178,6 +210,22 @@ class ToggleImageView(LiveImageView):
 
 	def show_view(self, show_main_view):
 		self._main_view = show_main_view
+
+class IncrementButton(QPushButton):
+	
+	def __init__(self, main_window: MainWindow):
+		super().__init__()
+		self.setText("Increment +")
+		self.setCheckable(False)
+		self.main_window = main_window
+		self.clicked.connect(self.increment)
+
+	def increment(self):
+		self.main_window.controls.no+=1
+		self.main_window.update_video_number()
+		
+	# def toggle_shortcut(self):
+	# 	self.animateClick()
 
 app = QApplication(sys.argv)
 

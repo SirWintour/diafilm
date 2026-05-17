@@ -18,6 +18,10 @@ I have added some additional features, such as color inversion and extra buttons
 
 - automatically detect movement to the next slide and capture the image after some waiting time (see [the last section](#how-the-next-slide-detection-works))
 - save files in specified output dir, a subfolder named as written in text input field, and with an increasing file number
+- shurtcuts and manual buttons for take / re-take picture
+- manual button to increment the count. (Only increment implemented to prevent accidental overriding of previous images)
+- picture settings, like inversion and zoom (only those for now)
+- config to reload settings
 
 **Please note:** the file number counter resets to 1 whenever the subfolder name in the text input field is being changed
 

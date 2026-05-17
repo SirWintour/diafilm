@@ -66,10 +66,20 @@ class VideoWorker(QRunnable):
 	def get_last_frame(self):
 		return self.last_img
 			
+	def set_last_frame(self, image):
+		self.last_img = image
 	
 	def get_last_preview(self):
 		return self.last_preview
 	
+	def set_last_preview(self, image):
+		self.last_preview = image
+
+	def resize_image(self, img):
+		image = cv2.resize(img, self.get_best_fit_size(img.shape), interpolation=cv2.INTER_AREA)
+		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		return image
+
 	def _zoom_center(self, img, zoom_factor=1.5):
 		y_size = img.shape[0]
 		x_size = img.shape[1]
