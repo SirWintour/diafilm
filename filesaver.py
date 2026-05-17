@@ -38,7 +38,10 @@ class Filesaver():
         if len(files) == 0:
             return 0
         last_file = max(files, key=lambda x: self.__get_match__(x))
-        return int(last_file.split(".")[0])if last_file else 0
+        try:
+            return int(last_file.split(".")[0])if last_file else 0
+        except ValueError:
+            return 0
 
     def __get_match__(self, item):
         match = re.search(r'\d+', item)
